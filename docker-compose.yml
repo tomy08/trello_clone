@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: trello_db
+    environment:
+      POSTGRES_USER: trello_user
+      POSTGRES_PASSWORD: trello_password
+      POSTGRES_DB: trello_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - trello_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U trello_user']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trello_backend
+    ports:
+      - '5000:5000'
+    environment:
+      DATABASE_URL: postgresql://trello_user:trello_password@db:5432/trello_db
+      FLASK_ENV: development
+      SECRET_KEY: dev-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - trello_network
+    command: python app.py
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: trello_frontend
+    ports:
+      - '3000:3000'
+    environment:
+      REACT_APP_API_URL: http://localhost:5000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - trello_network
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
+
+networks:
+  trello_network:
+    driver: bridge
