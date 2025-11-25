@@ -2,30 +2,30 @@ from src.db import db
 from datetime import datetime
 
 
-class Board(db.Model):
-    __tablename__ = "boards"
+class List(db.Model):
+    __tablename__ = "lists"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.String(255), nullable=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    board_id = db.Column(db.Integer, db.ForeignKey("boards.id"), nullable=False)
+    position = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    owner = db.relationship("User")
-    lists = db.relationship("List", backref="board", cascade="all, delete-orphan")
+    cards = db.relationship("Card", back_populates="list", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Board {self.title}>"
+        return f"<List ID: {self.id}, Title: {self.title}>"
 
     def to_dict(self):
         return {
             "id": self.id,
             "title": self.title,
-            "description": self.description,
-            "owner_id": self.owner_id,
+            "board_id": self.board_id,
+            "position": self.position,
+            "cards": [card.to_dict() for card in self.cards],
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
