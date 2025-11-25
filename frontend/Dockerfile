@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 3000
 
 # Comando para ejecutar la aplicación en modo desarrollo
-CMD ["npm", "start"]
+CMD ["npm", "run", "dev"]
