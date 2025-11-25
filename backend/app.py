@@ -3,7 +3,7 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from config import Config
 from src.db import db
-from src.routes.boards import boards_bp
+from src.routes import boards_bp, auth_bp
 
 
 def create_app():
@@ -15,6 +15,7 @@ def create_app():
     Migrate(app, db)
 
     app.register_blueprint(boards_bp)
+    app.register_blueprint(auth_bp)
     return app
 
 

@@ -4,3 +4,5 @@ flask-migrate
 psycopg2-binary
 python-dotenv
 flask-cors
+flask-jwt-extended
+werkzeug
