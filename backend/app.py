@@ -4,6 +4,7 @@ from flask_cors import CORS
 from config import Config
 from src.db import db
 from src.routes import boards_bp, auth_bp, cards_bp, lists_bp
+from flask_jwt_extended import JWTManager
 
 
 def create_app():
@@ -13,6 +14,7 @@ def create_app():
 
     db.init_app(app)
     Migrate(app, db)
+    JWTManager(app)
 
     app.register_blueprint(boards_bp)
     app.register_blueprint(auth_bp)
