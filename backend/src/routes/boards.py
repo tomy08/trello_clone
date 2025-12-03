@@ -45,3 +45,28 @@ def add_members(board_id):
             db.session.add(new_member)
     db.session.commit()
     return jsonify({"message": "Members added successfully"}), 201
+
+
+@boards_bp.route("/<int:board_id>/lists", methods=["GET"])
+def get_board_lists(board_id):
+    board = Board.query.get(board_id)
+    if not board:
+        return {"error": "Board not found"}, 404
+    lists = [lst.to_dict() for lst in board.lists]
+    return jsonify(lists), 200
+
+
+@boards_bp.route("/<int:board_id>", methods=["DELETE"])
+def delete_board(board_id):
+    board = Board.query.get(board_id)
+    if not board:
+        return jsonify({"error": "Board not found"}), 404
+    db.session.delete(board)
+    db.session.commit()
+    return jsonify({"message": "Board deleted successfully"}), 200
+
+
+@boards_bp.route("/", methods=["GET"])
+def get_all_boards():
+    boards = Board.query.all()
+    return jsonify([board.to_dict() for board in boards]), 200
