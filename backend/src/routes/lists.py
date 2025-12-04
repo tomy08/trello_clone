@@ -1,8 +1,8 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from decorators.board import require_board_access
-from src.models import List, Board, Card, BoardMember
+from src.decorators import require_board_access
+from src.models import List, Board, Card
 from src.db import db
 from src.utils.position_helpers import (
     adjust_positions_on_insert,
