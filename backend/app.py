@@ -1,9 +1,9 @@
-from flask import Flask, app
+from flask import Flask
 from flask_migrate import Migrate
 from flask_cors import CORS
+from flask_restx import Api
 from config import Config
 from src.db import db
-from src.routes import boards_bp, auth_bp, cards_bp, lists_bp
 from flask_jwt_extended import JWTManager
 
 
@@ -12,23 +12,52 @@ def create_app():
     CORS(app)
     app.config.from_object(Config)
 
+    # Configuración para Flask-RESTX
+    app.config["RESTX_MASK_SWAGGER"] = False
+    app.config["ERROR_404_HELP"] = False
+
     db.init_app(app)
     Migrate(app, db)
     JWTManager(app)
 
-    app.register_blueprint(boards_bp)
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(cards_bp)
-    app.register_blueprint(lists_bp)
+    # Inicializar API con documentación Swagger
+    api = Api(
+        app,
+        version="1.0",
+        title="Trello Clone API",
+        description="API REST completa para un clon de Trello con autenticación JWT",
+        doc="/docs",
+        authorizations={
+            "Bearer": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "Authorization",
+                "description": 'JWT Authorization header. Example: "Bearer {token}"',
+            }
+        },
+        security="Bearer",
+    )
+
+    # Importar y registrar namespaces
+    from src.routes.auth import auth_ns
+    from src.routes.boards import boards_ns
+    from src.routes.lists import lists_ns
+    from src.routes.cards import cards_ns
+
+    api.add_namespace(auth_ns, path="/auth")
+    api.add_namespace(boards_ns, path="/boards")
+    api.add_namespace(lists_ns, path="/lists")
+    api.add_namespace(cards_ns, path="/cards")
+
+    # Health check endpoint
+    @app.route("/health", methods=["GET"])
+    def health_check():
+        return {"status": "ok"}, 200
+
     return app
 
 
 app = create_app()
-
-
-@app.route("/health", methods=["GET"])
-def health_check():
-    return {"status": "ok"}, 200
 
 
 if __name__ == "__main__":

@@ -6,3 +6,4 @@ python-dotenv
 flask-cors
 flask-jwt-extended
 werkzeug
+flask-restx
