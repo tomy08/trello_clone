@@ -24,7 +24,7 @@ list_create_model = lists_ns.model(
         "board_id": fields.Integer(
             required=True, description="ID del tablero", example=1
         ),
-        "position": fields.Float(description="Posición en el tablero", example=1.0),
+        "position": fields.Float(description="Posición en el tablero", example=1),
     },
 )
 
@@ -116,10 +116,12 @@ class ListCollection(Resource):
 
 @lists_ns.route("/<int:list_id>")
 @lists_ns.param("list_id", "ID de la lista")
+@lists_ns.param("board_id", "ID del tablero")
 class ListResource(Resource):
     @lists_ns.doc(
         "get_list", description="Obtener una lista específica", security="Bearer"
     )
+    @lists_ns.param("board_id", "ID del tablero")
     @lists_ns.response(200, "Lista obtenida exitosamente", list_response_model)
     @lists_ns.response(401, "No autorizado", error_model)
     @lists_ns.response(404, "Lista no encontrada", error_model)
@@ -127,8 +129,10 @@ class ListResource(Resource):
     @require_board_access
     def get(self, list_id):
         """Obtener una lista específica"""
-        current_user_id = get_jwt_identity()
-        list_obj = List.query.get(list_id)
+        current_user_id = int(get_jwt_identity())
+        board_id = request.args.get("board_id", type=int)
+        list_obj = List.query.filter_by(id=list_id, board_id=board_id).first()
+
         if not list_obj:
             lists_ns.abort(404, "List not found")
 
@@ -228,7 +232,7 @@ class ListCards(Resource):
     @require_board_access
     def get(self, list_id):
         """Obtener tarjetas de una lista"""
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         list_obj = List.query.get(list_id)
         if not list_obj:
             lists_ns.abort(404, "List not found")
@@ -250,7 +254,7 @@ class ListCards(Resource):
     @require_board_access
     def post(self, list_id):
         """Agregar tarjeta a una lista"""
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         list_obj = List.query.get(list_id)
         if not list_obj:
             lists_ns.abort(404, "List not found")
@@ -299,7 +303,7 @@ class ListMove(Resource):
     @require_board_access
     def put(self, list_id):
         """Mover una lista a otro board y/o posición"""
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         list_obj = List.query.get(list_id)
         if not list_obj:
             lists_ns.abort(404, "List not found")

@@ -121,8 +121,8 @@ class Register(Resource):
             db.session.add(new_user)
             db.session.commit()
 
-            access_token = create_access_token(identity=new_user.id)
-            refresh_token = create_refresh_token(identity=new_user.id)
+            access_token = create_access_token(identity=str(new_user.id))
+            refresh_token = create_refresh_token(identity=str(new_user.id))
 
             return {
                 "msg": "User registered successfully",
@@ -156,8 +156,8 @@ class Login(Resource):
         if not user or not user.check_password(password):
             auth_ns.abort(401, "Invalid username or password")
 
-        access_token = create_access_token(identity=user.id)
-        refresh_token = create_refresh_token(identity=user.id)
+        access_token = create_access_token(identity=str(user.id))
+        refresh_token = create_refresh_token(identity=str(user.id))
 
         return {
             "msg": "Login successful",
@@ -196,7 +196,7 @@ class Me(Resource):
     @jwt_required()
     def get(self):
         """Obtener información del usuario actual"""
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         user = User.query.get(current_user_id)
         if not user:
             auth_ns.abort(404, "User not found")

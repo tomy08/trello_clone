@@ -88,7 +88,7 @@ class BoardList(Resource):
     @jwt_required()
     def get(self):
         """Obtener todos los boards del usuario autenticado"""
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
 
         # Boards donde es owner
         owned_boards = Board.query.filter_by(owner_id=current_user_id).all()
@@ -112,7 +112,7 @@ class BoardList(Resource):
     @jwt_required()
     def post(self):
         """Crear un nuevo board"""
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         data = request.get_json()
         title = data.get("title")
         description = data.get("description", "")
@@ -211,7 +211,7 @@ class MemberBoards(Resource):
     @jwt_required()
     def get(self, member_id):
         """Obtener boards de un usuario (solo si es el mismo usuario autenticado)"""
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
 
         # Solo permitir ver los propios boards o si se implementa lógica de amigos
         if current_user_id != member_id:
@@ -306,23 +306,3 @@ class BoardMemberResource(Resource):
         db.session.delete(member)
         db.session.commit()
         return {"message": "Member removed successfully"}, 200
-
-
-@boards_ns.route("/<int:board_id>/lists")
-@boards_ns.param("board_id", "ID del tablero")
-class BoardLists(Resource):
-    @boards_ns.doc(
-        "get_board_lists", description="Obtener listas de un tablero", security="Bearer"
-    )
-    @boards_ns.response(200, "Lista de listas obtenida exitosamente")
-    @boards_ns.response(401, "No autorizado", error_model)
-    @boards_ns.response(404, "Tablero no encontrado", error_model)
-    @jwt_required()
-    @require_board_access
-    def get(self, board_id):
-        """Obtener listas de un board"""
-        board = Board.query.get(board_id)
-        if not board:
-            boards_ns.abort(404, "Board not found")
-        lists = [lst.to_dict() for lst in board.lists]
-        return lists, 200
