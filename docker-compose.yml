@@ -48,10 +48,16 @@ services:
     ports:
       - '3000:3000'
     environment:
-      REACT_APP_API_URL: http://localhost:5001
+      NEXT_PUBLIC_API_URL: http://localhost:5001
+      WATCHPACK_POLLING: 'true'
+      CHOKIDAR_USEPOLLING: 'true'
+      WDS_SOCKET_PORT: 3000
+      # Forzar Turbopack a hacer polling más agresivo
+      TURBOPACK_USE_POLLING: 'true'
     volumes:
-      - ./frontend:/app
+      - ./frontend:/app:cached
       - /app/node_modules
+      - /app/.next
     depends_on:
       - backend
     networks:
