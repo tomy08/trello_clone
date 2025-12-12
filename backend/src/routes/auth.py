@@ -34,8 +34,8 @@ auth_register_model = auth_ns.model(
 auth_login_model = auth_ns.model(
     "AuthLogin",
     {
-        "username": fields.String(
-            required=True, description="Nombre de usuario", example="johndoe"
+        "email": fields.String(
+            required=True, description="Email del usuario", example="john@example.com"
         ),
         "password": fields.String(
             required=True, description="Contraseña", example="password123"
@@ -145,16 +145,16 @@ class Login(Resource):
         """Iniciar sesión"""
         data = request.get_json()
 
-        username = data.get("username")
+        email = data.get("email")
         password = data.get("password")
 
-        if not username or not password:
-            auth_ns.abort(400, "Missing username or password")
+        if not email or not password:
+            auth_ns.abort(400, "Missing email or password")
 
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter_by(email=email).first()
 
         if not user or not user.check_password(password):
-            auth_ns.abort(401, "Invalid username or password")
+            auth_ns.abort(401, "Invalid email or password")
 
         access_token = create_access_token(identity=str(user.id))
         refresh_token = create_refresh_token(identity=str(user.id))
