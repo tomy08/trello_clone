@@ -1,8 +1,18 @@
 import Image from 'next/image'
+import { redirect } from "next/navigation";
 import Link from 'next/link'
 
 import Header from './components/header-hero'
+
+async function handleSignup(formData: FormData) {
+  'use server'
+  
+  const email = formData.get("email") as string;
+  redirect(`/signup?email=${encodeURIComponent(email)}`);
+}
+
 export default function Home() {
+
   return (
     <>
       <Header />
@@ -16,10 +26,12 @@ export default function Home() {
               Escape the clutter and chaos—unleash your productivity with
               Trello.
             </p>
-            <form action="" className="mt-8 flex flex-col sm:flex-row gap-3">
+            <form action={handleSignup} className="mt-8 flex flex-col sm:flex-row gap-3">
               <input
                 type="email"
+                name="email"
                 placeholder="Email"
+                required
                 className="flex-1 border border-gray-300 px-4 py-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <button

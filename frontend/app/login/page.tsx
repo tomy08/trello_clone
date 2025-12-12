@@ -1,8 +1,65 @@
-import Link from 'next/link'
+"use client";
+
+import Link from 'next/link';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { API_URL } from "../constants";
 
 export default function LoginPage() {
+  const [errorMessage, setErrorMessage] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    const API_ENDPOINT = `${API_URL}/auth/login`;
+
+    const payload = {
+      email: email,
+      password: password,
+    };
+
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Invalid credentials");
+      }
+
+      const data = await response.json();
+      
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+      }
+      if (data.refresh_token) {
+        localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      
+      form.reset();
+      setErrorMessage("");
+      
+  
+      router.push("/");
+      
+    } catch (error) {
+      console.error("Error:", error);
+      setErrorMessage("Invalid email or password. Please try again.");
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -10,10 +67,17 @@ export default function LoginPage() {
           <p className="text-gray-600">Log in to continue</p>
         </div>
 
-        {/* Login Card */}
+
         <div className="bg-white rounded-lg shadow-xl p-8">
-          <form className="space-y-6">
-            {/* Email Input */}
+      
+          {errorMessage && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{errorMessage}</p>
+            </div>
+          )}
+          
+          <form className="space-y-6" onSubmit={handleSubmit}>
+   
             <div>
               <label
                 htmlFor="email"
@@ -32,7 +96,7 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Password Input */}
+       
             <div>
               <label
                 htmlFor="password"
@@ -51,7 +115,7 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Remember Me & Forgot Password */}
+         
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <input
@@ -76,7 +140,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Submit Button */}
+         
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
@@ -86,7 +150,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* Sign Up Link */}
+ 
         <p className="mt-8 text-center text-sm text-gray-600">
           Don&apos;t have an account?{' '}
           <Link
@@ -97,7 +161,7 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        {/* Footer Links */}
+
         <div className="mt-8 text-center">
           <div className="flex justify-center space-x-4 text-xs text-gray-500">
             <Link href="#" className="hover:text-gray-700">

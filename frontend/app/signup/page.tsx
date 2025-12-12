@@ -1,9 +1,81 @@
-import Link from 'next/link'
-import Image from 'next/image'
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { API_URL } from "../constants";
 
 export default function SignupPage() {
+  const [errorMessage, setErrorMessage] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const emailFromUrl = searchParams.get("email") || "";
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const name = formData.get("name") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirm-password") as string;
+    const termsAccepted = formData.get("terms") === "on";
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match!");
+      return;
+    }
+
+    if (!termsAccepted) {
+      setErrorMessage("You must accept the terms and conditions!");
+      return;
+    }
+    const API_ENDPOINT = `${API_URL}/auth/register`;
+
+    const payload = {
+      username: name,
+      email: email,
+      password: password,
+    };
+
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const data = await response.json();
+      
+      // Guardar tokens en localStorage
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+      }
+      if (data.refresh_token) {
+        localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      
+      form.reset();
+      setErrorMessage("");
+      
+      // Redirigir al usuario después del registro exitoso
+      router.push("/");
+      
+    } catch (error) {
+      console.error("Error:", error);
+      setErrorMessage("There was an error creating your account.");
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 px-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -11,10 +83,17 @@ export default function SignupPage() {
           <p className="text-gray-600">Sign up to get started</p>
         </div>
 
-        {/* Signup Card */}
+        
         <div className="bg-white rounded-lg shadow-xl p-8">
-          <form className="space-y-5">
-            {/* Full Name Input */}
+        
+          {errorMessage && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{errorMessage}</p>
+            </div>
+          )}
+          
+          <form className="space-y-5" onSubmit={handleSubmit}>
+        
             <div>
               <label
                 htmlFor="name"
@@ -33,7 +112,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Email Input */}
             <div>
               <label
                 htmlFor="email"
@@ -47,12 +125,12 @@ export default function SignupPage() {
                 type="email"
                 autoComplete="email"
                 required
+                defaultValue={emailFromUrl}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Enter your email"
               />
             </div>
 
-            {/* Password Input */}
             <div>
               <label
                 htmlFor="password"
@@ -74,7 +152,6 @@ export default function SignupPage() {
               </p>
             </div>
 
-            {/* Confirm Password Input */}
             <div>
               <label
                 htmlFor="confirm-password"
@@ -93,7 +170,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Terms and Conditions */}
             <div className="flex items-start">
               <div className="flex items-center h-5">
                 <input
@@ -106,14 +182,14 @@ export default function SignupPage() {
               </div>
               <div className="ml-3 text-sm">
                 <label htmlFor="terms" className="text-gray-700">
-                  I agree to the{' '}
+                  I agree to the{" "}
                   <Link
                     href="#"
                     className="text-blue-600 hover:text-blue-700 font-medium"
                   >
                     Terms of Service
-                  </Link>{' '}
-                  and{' '}
+                  </Link>{" "}
+                  and{" "}
                   <Link
                     href="#"
                     className="text-blue-600 hover:text-blue-700 font-medium"
@@ -124,7 +200,6 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
@@ -134,9 +209,8 @@ export default function SignupPage() {
           </form>
         </div>
 
-        {/* Login Link */}
         <p className="mt-8 text-center text-sm text-gray-600">
-          Already have an account?{' '}
+          Already have an account?{" "}
           <Link
             href="/login"
             className="font-medium text-blue-600 hover:text-blue-700"
@@ -145,7 +219,6 @@ export default function SignupPage() {
           </Link>
         </p>
 
-        {/* Footer Links */}
         <div className="mt-8 text-center">
           <div className="flex justify-center space-x-4 text-xs text-gray-500">
             <Link href="#" className="hover:text-gray-700">
@@ -163,5 +236,5 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
