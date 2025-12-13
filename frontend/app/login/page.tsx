@@ -1,13 +1,25 @@
 "use client";
 
 import Link from 'next/link';
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL } from "../constants";
+import { isAuthenticated } from "../lib/auth";
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
+
+  
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (await isAuthenticated()) {
+        router.push("/dashboard");
+      }
+    };
+    checkAuth();
+  }, [router]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

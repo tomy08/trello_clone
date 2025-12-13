@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { redirect } from "next/navigation";
 import Link from 'next/link'
+import AuthCheck from './components/auth-check';
 
 import Header from './components/header-hero'
 
@@ -11,10 +12,13 @@ async function handleSignup(formData: FormData) {
   redirect(`/signup?email=${encodeURIComponent(email)}`);
 }
 
-export default function Home() {
+
+
+export default async function Home() {
 
   return (
     <>
+      <AuthCheck />
       <Header />
       <main className="flex flex-col">
         <div className="container mx-auto px-6 py-16 flex flex-col md:flex-row items-center justify-center gap-12 flex-1">

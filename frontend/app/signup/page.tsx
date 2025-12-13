@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_URL } from "../constants";
+import { isAuthenticated } from "../lib/auth";
 
 export default function SignupPage() {
   const [errorMessage, setErrorMessage] = useState("");
@@ -11,6 +12,15 @@ export default function SignupPage() {
   const searchParams = useSearchParams();
   const emailFromUrl = searchParams.get("email") || "";
   
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (await isAuthenticated()) {
+        router.push("/dashboard");
+      }
+    };
+    checkAuth();
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
