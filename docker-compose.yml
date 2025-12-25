@@ -38,7 +38,8 @@ services:
         condition: service_healthy
     networks:
       - trello_network
-    command: python app.py
+    command: >
+      sh -c "flask db upgrade && python app.py"
 
   frontend:
     build:

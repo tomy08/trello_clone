@@ -9,8 +9,17 @@ from flask_jwt_extended import JWTManager
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
     app.config.from_object(Config)
+    
+    # Configuración de CORS más permisiva
+    CORS(app, 
+         resources={r"/*": {
+             "origins": ["http://localhost:3000"],
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+             "allow_headers": ["Content-Type", "Authorization"],
+             "supports_credentials": True,
+             "expose_headers": ["Content-Type", "Authorization"]
+         }})
 
     # Configuración para Flask-RESTX
     app.config["RESTX_MASK_SWAGGER"] = False
