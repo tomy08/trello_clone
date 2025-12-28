@@ -7,47 +7,68 @@ import { getCurrentUser, logout, type User } from '../lib/auth'
 import { API_URL } from '../constants'
 import DashboardCard from '../components/dashboard-card'
 import CreateBoardModal from '../components/create-board-modal'
+import EditBoardModal from '../components/edit-board-modal'
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [boards, setBoards] = useState<
-    Array<{ id: string; title: string; cardCount: number }>
+    Array<{ id: string; title: string; cardCount: number; description: string }>
   >([])
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingBoard, setEditingBoard] = useState<{
+    id: string
+    title: string
+    description: string
+  } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     getCurrentUser().then(setUser)
   }, [])
 
-  useEffect(() => {
-    const fetchBoards = async () => {
-      try {
-        const token = localStorage.getItem('access_token')
-        if (!token) {
-          console.error('No authentication token found')
-          return
-        }
-        const API_ENDPOINT = API_URL + '/boards'
-        const response = await fetch(API_ENDPOINT, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch boards: ${response.status}`)
-        }
-
-        const data = await response.json()
-        setBoards(data)
-      } catch (error) {
-        console.error('Error fetching boards:', error)
+  const fetchBoards = async () => {
+    try {
+      const token = localStorage.getItem('access_token')
+      if (!token) {
+        console.error('No authentication token found')
+        return
       }
+      const API_ENDPOINT = API_URL + '/boards'
+      const response = await fetch(API_ENDPOINT, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch boards: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setBoards(data)
+    } catch (error) {
+      console.error('Error fetching boards:', error)
     }
+  }
+
+  useEffect(() => {
     fetchBoards()
   }, [])
+
+  const handleEditBoard = (board: {
+    id: string
+    title: string
+    description: string
+  }) => {
+    setEditingBoard(board)
+    setIsEditModalOpen(true)
+  }
+
+  const handleBoardUpdated = () => {
+    fetchBoards()
+  }
 
   const handleSignOut = () => {
     logout()
@@ -104,9 +125,18 @@ export default function DashboardPage() {
             {boards.map((board) => (
               <DashboardCard
                 key={board.id}
+                boardId={board.id}
                 title={board.title}
                 cardCount={board.cardCount}
                 link={`/boards/${board.id}`}
+                description={board.description}
+                onEditClick={() =>
+                  handleEditBoard({
+                    id: board.id,
+                    title: board.title,
+                    description: board.description,
+                  })
+                }
               />
             ))}
 
@@ -139,6 +169,19 @@ export default function DashboardPage() {
         <CreateBoardModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
+        />
+
+        {/* Edit Board Modal */}
+        <EditBoardModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setEditingBoard(null)
+          }}
+          boardId={editingBoard?.id || null}
+          currentTitle={editingBoard?.title || ''}
+          currentDescription={editingBoard?.description || ''}
+          onBoardUpdated={handleBoardUpdated}
         />
       </div>
     </>
