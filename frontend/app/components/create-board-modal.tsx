@@ -1,73 +1,89 @@
 'use client'
 
-import { useState } from 'react';
-import { API_URL } from '../constants';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { API_URL } from '../constants'
 
 interface CreateBoardModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onBoardCreated: () => void;
+  isOpen: boolean
+  onClose: () => void
 }
 
-export default function CreateBoardModal({ isOpen, onClose, onBoardCreated }: CreateBoardModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+export default function CreateBoardModal({
+  isOpen,
+  onClose,
+}: CreateBoardModalProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
 
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+    const title = formData.get('title') as string
+    const description = formData.get('description') as string
 
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('access_token')
       if (!token) {
-        throw new Error('No authentication token found. Please log in again.');
+        throw new Error('No authentication token found. Please log in again.')
       }
 
       const response = await fetch(`${API_URL}/boards`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title, description})
-      });
+        body: JSON.stringify({ title, description }),
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Error al crear el board');
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || 'Error al crear el board')
       }
-      
-      form.reset();
-      onBoardCreated();
-      onClose();
-    } catch (err) {
-      console.error('Error creating board:', err);
-      setError(err instanceof Error ? err.message : 'Error al crear el board');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  if (!isOpen) return null;
+      const newBoard = await response.json()
+      form.reset()
+      onClose()
+      router.push(`/boards/${newBoard.id}`)
+    } catch (err) {
+      console.error('Error creating board:', err)
+      setError(err instanceof Error ? err.message : 'Error al crear el board')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-slate-800">Create New Board</h2>
+          <h2 className="text-2xl font-bold text-slate-800">
+            Create New Board
+          </h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -80,7 +96,10 @@ export default function CreateBoardModal({ isOpen, onClose, onBoardCreated }: Cr
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="title" className="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
               Board Title
             </label>
             <input
@@ -94,7 +113,10 @@ export default function CreateBoardModal({ isOpen, onClose, onBoardCreated }: Cr
           </div>
 
           <div className="mb-6">
-            <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
               Description
             </label>
             <textarea
@@ -127,5 +149,5 @@ export default function CreateBoardModal({ isOpen, onClose, onBoardCreated }: Cr
         </form>
       </div>
     </div>
-  );
+  )
 }

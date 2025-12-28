@@ -1,87 +1,58 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import AuthCheck from "../components/auth-check";
-import { getCurrentUser, logout, type User } from "../lib/auth";
-import { API_URL } from "../constants";
-import DashboardCard from "../components/dashboard-card";
-import CreateBoardModal from "../components/create-board-modal";
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import AuthCheck from '../components/auth-check'
+import { getCurrentUser, logout, type User } from '../lib/auth'
+import { API_URL } from '../constants'
+import DashboardCard from '../components/dashboard-card'
+import CreateBoardModal from '../components/create-board-modal'
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [boards, setBoards] = useState<Array<{ id: string; title: string; cardCount: number }>>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null)
+  const [boards, setBoards] = useState<
+    Array<{ id: string; title: string; cardCount: number }>
+  >([])
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
-    getCurrentUser().then(setUser);
-  }, []);
+    getCurrentUser().then(setUser)
+  }, [])
 
   useEffect(() => {
     const fetchBoards = async () => {
       try {
-        const token = localStorage.getItem('access_token');
+        const token = localStorage.getItem('access_token')
         if (!token) {
-          console.error('No authentication token found');
-          return;
+          console.error('No authentication token found')
+          return
         }
-        const API_ENDPOINT = API_URL + '/boards';
+        const API_ENDPOINT = API_URL + '/boards'
         const response = await fetch(API_ENDPOINT, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch boards: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setBoards(data);
-      } catch (error) {
-        console.error('Error fetching boards:', error);
-      }
-    };
-    fetchBoards();
-  }, []);
+            Authorization: `Bearer ${token}`,
+          },
+        })
 
-  const handleBoardCreated = () => {
-    // Refetch boards after creating a new one
-    const fetchBoards = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-          console.error('No authentication token found');
-          return;
-        }
-        const API_ENDPOINT = API_URL + '/boards';
-        const response = await fetch(API_ENDPOINT, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
         if (!response.ok) {
-          throw new Error(`Failed to fetch boards: ${response.status}`);
+          throw new Error(`Failed to fetch boards: ${response.status}`)
         }
-        
-        const data = await response.json();
-        setBoards(data);
+
+        const data = await response.json()
+        setBoards(data)
       } catch (error) {
-        console.error('Error fetching boards:', error);
+        console.error('Error fetching boards:', error)
       }
-    };
-    fetchBoards();
-  };
-        
+    }
+    fetchBoards()
+  }, [])
 
   const handleSignOut = () => {
-    logout();
-    router.push("/login");
-  };
+    logout()
+    router.push('/login')
+  }
 
   return (
     <>
@@ -91,20 +62,20 @@ export default function DashboardPage() {
         <header className="px-8 py-6 border-b border-slate-200 bg-white/50 backdrop-blur-sm ">
           <div className="flex items-around justify-between">
             <h1 className="text-slate-800 text-3xl font-bold">
-              Bienvenido {user?.name || "Usuario"} a Trello Clone
+              Bienvenido {user?.name || 'Usuario'} a Trello Clone
             </h1>
 
             {/* User Profile & Sign Out */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-semibold">
-                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div className="hidden md:block">
                   <p className="text-sm font-medium text-slate-800">
-                    {user?.name || "Usuario"}
+                    {user?.name || 'Usuario'}
                   </p>
-                  <p className="text-xs text-slate-500">{user?.email || ""}</p>
+                  <p className="text-xs text-slate-500">{user?.email || ''}</p>
                 </div>
               </div>
               <button
@@ -140,9 +111,10 @@ export default function DashboardPage() {
             ))}
 
             {/* Create New Board */}
-            <button 
+            <button
               onClick={() => setIsModalOpen(true)}
-              className="border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition-all duration-200 flex flex-col items-center justify-center min-h-[180px] bg-white">
+              className="border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition-all duration-200 flex flex-col items-center justify-center min-h-[180px] bg-white"
+            >
               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3 hover:bg-slate-200 transition-colors">
                 <svg
                   className="w-6 h-6 text-slate-600"
@@ -164,12 +136,11 @@ export default function DashboardPage() {
         </main>
 
         {/* Create Board Modal */}
-        <CreateBoardModal 
+        <CreateBoardModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onBoardCreated={handleBoardCreated}
         />
       </div>
     </>
-  );
+  )
 }

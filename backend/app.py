@@ -24,6 +24,7 @@ def create_app():
     # Configuración para Flask-RESTX
     app.config["RESTX_MASK_SWAGGER"] = False
     app.config["ERROR_404_HELP"] = False
+    app.url_map.strict_slashes = False  # Evita redirects por trailing slash
 
     db.init_app(app)
     Migrate(app, db)
