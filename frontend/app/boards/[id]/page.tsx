@@ -1,10 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import AuthCheck from '@/app/components/auth-check'
 import { getCurrentUser, getAccessToken, type User } from '@/app/lib/auth'
 import { API_URL } from '@/app/constants'
+import { BoardColumn } from '@/app/components/board-column'
+import { BoardCard } from '@/app/components/board-card'
+import { AddListButton } from '@/app/components/add-list-button'
 
 interface Board {
   id: string
@@ -14,12 +28,29 @@ interface Board {
   created_at: string
 }
 
+interface List {
+  id: number
+  title: string
+  board_id: number
+  position: number
+  created_at: string
+}
+
 interface Card {
-  id: string
+  id: number
   title: string
   description: string
+  list_id: number
   position: number
-  board_id: string
+  due_date?: string
+  archived: boolean
+  created_at: string
+}
+
+interface Column {
+  id: number
+  title: string
+  cards: Card[]
 }
 
 export default function BoardPage() {
@@ -29,17 +60,31 @@ export default function BoardPage() {
 
   const [user, setUser] = useState<User | null>(null)
   const [board, setBoard] = useState<Board | null>(null)
-  const [cards, setCards] = useState<Card[]>([])
+  const [columns, setColumns] = useState<Column[]>([])
+  const [activeCard, setActiveCard] = useState<Card | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAuthorized, setIsAuthorized] = useState(false)
+  const [showAddCardModal, setShowAddCardModal] = useState(false)
+  const [selectedListId, setSelectedListId] = useState<number | null>(null)
+  const [newCardTitle, setNewCardTitle] = useState('')
+  const [newCardDescription, setNewCardDescription] = useState('')
+
+  // Configurar sensores para drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
 
   useEffect(() => {
     getCurrentUser().then(setUser)
   }, [])
 
   // Validar acceso al board
-  const validateAccess = async () => {
+  const validateAccess = useCallback(async () => {
     try {
       const token = getAccessToken()
       if (!token) {
@@ -80,28 +125,214 @@ export default function BoardPage() {
       setError('Error al validar el acceso')
       return false
     }
-  }
+  }, [boardId, router])
 
-  // Cargar las cards del board
-  const fetchCards = async () => {
+  // Cargar listas y tarjetas del board
+  const fetchListsAndCards = useCallback(async () => {
     try {
       const token = getAccessToken()
       if (!token) return
 
-      const API_ENDPOINT = `${API_URL}/boards/${boardId}/cards`
-      const response = await fetch(API_ENDPOINT, {
-        method: 'GET',
+      // Obtener todas las listas del board
+      const listsResponse = await fetch(`${API_URL}/boards/${boardId}/lists`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (!listsResponse.ok) {
+        console.error('Error al cargar listas')
+        return
+      }
+
+      const allLists: List[] = await listsResponse.json()
+
+      // Obtener todas las tarjetas del board
+      const cardsResponse = await fetch(`${API_URL}/boards/${boardId}/cards`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (!cardsResponse.ok) {
+        console.error('Error al cargar tarjetas')
+        return
+      }
+
+      const allCards: Card[] = await cardsResponse.json()
+
+      // Crear columnas con todas las listas (incluso las vacías)
+      const columnsWithCards = allLists.map((list) => ({
+        id: list.id,
+        title: list.title,
+        cards: allCards
+          .filter((card) => card.list_id === list.id)
+          .sort((a, b) => a.position - b.position),
+      }))
+
+      // Ordenar columnas por posición de lista
+      setColumns(
+        columnsWithCards.sort((a, b) => {
+          const aList = allLists.find((l) => l.id === a.id)
+          const bList = allLists.find((l) => l.id === b.id)
+          return (aList?.position || 0) - (bList?.position || 0)
+        })
+      )
+    } catch (error) {
+      console.error('Error fetching lists and cards:', error)
+    }
+  }, [boardId])
+
+  // Handlers para drag & drop
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event
+    const card = columns
+      .flatMap((col) => col.cards)
+      .find((c) => c.id === active.id)
+    setActiveCard(card || null)
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event
+    if (!over) return
+
+    const activeId = active.id as number
+    const overId = over.id as number
+
+    // Encontrar columnas
+    const activeColumn = columns.find((col) =>
+      col.cards.some((card) => card.id === activeId)
+    )
+    const overColumn = columns.find(
+      (col) => col.id === overId || col.cards.some((card) => card.id === overId)
+    )
+
+    if (!activeColumn || !overColumn) return
+    if (activeColumn.id === overColumn.id) return
+
+    setColumns((cols) => {
+      const activeCards = [...activeColumn.cards]
+      const overCards = [...overColumn.cards]
+      const activeIndex = activeCards.findIndex((c) => c.id === activeId)
+      const overIndex = overCards.findIndex((c) => c.id === overId)
+
+      const [movedCard] = activeCards.splice(activeIndex, 1)
+      movedCard.list_id = overColumn.id
+
+      if (overId === overColumn.id) {
+        overCards.push(movedCard)
+      } else {
+        overCards.splice(overIndex, 0, movedCard)
+      }
+
+      return cols.map((col) => {
+        if (col.id === activeColumn.id) return { ...col, cards: activeCards }
+        if (col.id === overColumn.id) return { ...col, cards: overCards }
+        return col
+      })
+    })
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveCard(null)
+
+    if (!over) return
+
+    const activeId = active.id as number
+    const overId = over.id as number
+
+    const activeColumn = columns.find((col) =>
+      col.cards.some((card) => card.id === activeId)
+    )
+    const overColumn = columns.find(
+      (col) => col.id === overId || col.cards.some((card) => card.id === overId)
+    )
+
+    if (!activeColumn || !overColumn) return
+
+    const activeCard = activeColumn.cards.find((c) => c.id === activeId)
+    if (!activeCard) return
+
+    // Si se movió a otra columna
+    if (activeColumn.id !== overColumn.id) {
+      const newPosition = overColumn.cards.length
+      await moveCardToList(activeId, overColumn.id, newPosition)
+    } else {
+      // Reordenar dentro de la misma columna
+      const activeIndex = activeColumn.cards.findIndex((c) => c.id === activeId)
+      const overIndex = activeColumn.cards.findIndex((c) => c.id === overId)
+
+      if (activeIndex !== overIndex) {
+        setColumns((cols) => {
+          const updatedCards = arrayMove(
+            activeColumn.cards,
+            activeIndex,
+            overIndex
+          )
+          return cols.map((col) =>
+            col.id === activeColumn.id ? { ...col, cards: updatedCards } : col
+          )
+        })
+        // Actualizar posición en la API
+        await moveCardToList(activeId, activeColumn.id, overIndex)
+      }
+    }
+  }
+
+  const handleAddCard = (listId: number) => {
+    setSelectedListId(listId)
+    setShowAddCardModal(true)
+  }
+
+  const createCard = async () => {
+    if (!newCardTitle.trim() || !selectedListId) return
+
+    try {
+      const token = getAccessToken()
+      if (!token) return
+
+      const response = await fetch(`${API_URL}/lists/${selectedListId}/cards`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({
+          title: newCardTitle,
+          description: newCardDescription,
+        }),
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setCards(data)
+        setNewCardTitle('')
+        setNewCardDescription('')
+        setShowAddCardModal(false)
+        await fetchListsAndCards()
       }
     } catch (error) {
-      console.error('Error fetching cards:', error)
+      console.error('Error creating card:', error)
+    }
+  }
+
+  const moveCardToList = async (
+    cardId: number,
+    listId: number,
+    position: number
+  ) => {
+    try {
+      const token = getAccessToken()
+      if (!token) return
+
+      await fetch(`${API_URL}/cards/${cardId}/move`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          list_id: listId,
+          position,
+        }),
+      })
+    } catch (error) {
+      console.error('Error moving card:', error)
     }
   }
 
@@ -111,7 +342,7 @@ export default function BoardPage() {
       const hasAccess = await validateAccess()
 
       if (hasAccess) {
-        await fetchCards()
+        await fetchListsAndCards()
       }
 
       setLoading(false)
@@ -120,7 +351,7 @@ export default function BoardPage() {
     if (boardId) {
       loadBoardData()
     }
-  }, [boardId])
+  }, [boardId, validateAccess, fetchListsAndCards])
 
   if (loading) {
     return (
@@ -222,47 +453,97 @@ export default function BoardPage() {
 
         {/* Main Content */}
         <main className="p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-2xl font-semibold text-slate-800">
-                Cards ({cards.length})
-              </h2>
-              <button className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors">
-                + Agregar Card
-              </button>
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-6 overflow-x-auto pb-4">
+              {columns.map((column) => (
+                <BoardColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  cards={column.cards}
+                  onAddCard={handleAddCard}
+                />
+              ))}
+
+              <AddListButton
+                boardId={boardId}
+                onListCreated={fetchListsAndCards}
+              />
             </div>
 
-            {/* Cards Grid */}
-            {cards.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-slate-500 text-lg">
-                  No hay cards en este board todavía
-                </p>
-                <p className="text-slate-400 text-sm mt-2">
-                  ¡Crea tu primera card para comenzar!
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {cards.map((card) => (
-                  <div
-                    key={card.id}
-                    className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 border border-slate-200"
-                  >
-                    <h3 className="font-semibold text-slate-800 mb-2">
-                      {card.title}
-                    </h3>
-                    {card.description && (
-                      <p className="text-slate-600 text-sm">
-                        {card.description}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            <DragOverlay>
+              {activeCard ? <BoardCard card={activeCard} /> : null}
+            </DragOverlay>
+          </DndContext>
         </main>
+
+        {/* Modal para agregar tarjeta */}
+        {showAddCardModal && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setShowAddCardModal(false)}
+          >
+            <div
+              className="bg-white rounded-lg p-6 w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-semibold text-slate-800 mb-4">
+                Nueva Tarjeta
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Título
+                  </label>
+                  <input
+                    type="text"
+                    value={newCardTitle}
+                    onChange={(e) => setNewCardTitle(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    placeholder="Título de la tarjeta"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Descripción (opcional)
+                  </label>
+                  <textarea
+                    value={newCardDescription}
+                    onChange={(e) => setNewCardDescription(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 resize-none"
+                    placeholder="Descripción de la tarjeta"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={createCard}
+                  disabled={!newCardTitle.trim()}
+                  className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Crear
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddCardModal(false)
+                    setNewCardTitle('')
+                    setNewCardDescription('')
+                  }}
+                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   )

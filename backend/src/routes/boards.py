@@ -1,7 +1,7 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from src.models import Board, BoardMember
+from src.models import Board, BoardMember, List, Card
 from src.db import db
 from src.decorators import require_board_access, require_board_owner
 
@@ -223,6 +223,40 @@ class MemberBoards(Resource):
         return [board.to_dict() for board in boards], 200
 
 
+@boards_ns.route("/<int:board_id>/lists")
+@boards_ns.param("board_id", "ID del tablero")
+class BoardLists(Resource):
+    @boards_ns.doc(
+        "get_board_lists",
+        description="Obtener todas las listas y tarjetas de un tablero",
+        security="Bearer",
+    )
+    @boards_ns.response(200, "Listas y tarjetas obtenidas exitosamente")
+    @boards_ns.response(401, "No autorizado", error_model)
+    @boards_ns.response(404, "Tablero no encontrado", error_model)
+    @jwt_required()
+    @require_board_access
+    def get(self, board_id):
+        """Obtener todas las listas y sus tarjetas de un board"""
+        board = Board.query.get(board_id)
+        if not board:
+            boards_ns.abort(404, "Board not found")
+        
+        # Obtener todas las listas del board ordenadas por posición
+        lists = List.query.filter_by(board_id=board_id).order_by(List.position).all()
+        
+        # Para cada lista, obtener sus tarjetas
+        lists_with_cards = []
+        for lst in lists:
+            list_dict = lst.to_dict()
+            # Obtener tarjetas de esta lista ordenadas por posición
+            cards = Card.query.filter_by(list_id=lst.id).order_by(Card.position).all()
+            list_dict['cards'] = [card.to_dict() for card in cards]
+            lists_with_cards.append(list_dict)
+        
+        return lists_with_cards, 200
+
+
 @boards_ns.route("/<int:board_id>/members")
 @boards_ns.param("board_id", "ID del tablero")
 class BoardMembers(Resource):
@@ -306,3 +340,32 @@ class BoardMemberResource(Resource):
         db.session.delete(member)
         db.session.commit()
         return {"message": "Member removed successfully"}, 200
+
+
+@boards_ns.route("/<int:board_id>/cards")
+@boards_ns.param("board_id", "ID del tablero")
+class BoardCards(Resource):
+    @boards_ns.doc(
+        "get_board_cards",
+        description="Obtener todas las tarjetas de un tablero",
+        security="Bearer",
+    )
+    @boards_ns.response(200, "Lista de tarjetas obtenida exitosamente")
+    @boards_ns.response(401, "No autorizado", error_model)
+    @boards_ns.response(404, "Tablero no encontrado", error_model)
+    @jwt_required()
+    @require_board_access
+    def get(self, board_id):
+        """Obtener todas las tarjetas de un board"""
+        board = Board.query.get(board_id)
+        if not board:
+            boards_ns.abort(404, "Board not found")
+        
+        # Obtener todas las listas del board
+        lists = List.query.filter_by(board_id=board_id).all()
+        list_ids = [lst.id for lst in lists]
+        
+        # Obtener todas las tarjetas de esas listas
+        cards = Card.query.filter(Card.list_id.in_(list_ids)).order_by(Card.position).all()
+        
+        return [card.to_dict() for card in cards], 200
