@@ -19,6 +19,8 @@ import { API_URL } from '@/app/constants'
 import { BoardColumn } from '@/app/components/board-column'
 import { BoardCard } from '@/app/components/board-card'
 import { AddListButton } from '@/app/components/add-list-button'
+import { DeleteListModal } from '@/app/components/delete-list-modal'
+import { DeleteCardModal } from '@/app/components/delete-card-modal'
 
 interface Board {
   id: string
@@ -69,6 +71,16 @@ export default function BoardPage() {
   const [selectedListId, setSelectedListId] = useState<number | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [newCardDescription, setNewCardDescription] = useState('')
+  const [showDeleteListModal, setShowDeleteListModal] = useState(false)
+  const [listToDelete, setListToDelete] = useState<{
+    id: number
+    title: string
+  } | null>(null)
+  const [showDeleteCardModal, setShowDeleteCardModal] = useState(false)
+  const [cardToDelete, setCardToDelete] = useState<{
+    id: number
+    title: string
+  } | null>(null)
 
   // Configurar sensores para drag & drop
   const sensors = useSensors(
@@ -281,6 +293,24 @@ export default function BoardPage() {
     setShowAddCardModal(true)
   }
 
+  const handleDeleteList = (listId: number) => {
+    const list = columns.find((col) => col.id === listId)
+    if (list) {
+      setListToDelete({ id: list.id, title: list.title })
+      setShowDeleteListModal(true)
+    }
+  }
+
+  const handleDeleteCard = (cardId: number) => {
+    const card = columns
+      .flatMap((col) => col.cards)
+      .find((c) => c.id === cardId)
+    if (card) {
+      setCardToDelete({ id: card.id, title: card.title })
+      setShowDeleteCardModal(true)
+    }
+  }
+
   const createCard = async () => {
     if (!newCardTitle.trim() || !selectedListId) return
 
@@ -451,7 +481,9 @@ export default function BoardPage() {
           </div>
         </header>
 
-        {/* Main Content */}
+        {/* Main  onDeleteList={handleDeleteList}
+                  onDeleteCard={handleDeleteCard}
+                 Content */}
         <main className="p-8">
           <DndContext
             sensors={sensors}
@@ -467,6 +499,8 @@ export default function BoardPage() {
                   title={column.title}
                   cards={column.cards}
                   onAddCard={handleAddCard}
+                  onDeleteCard={handleDeleteCard}
+                  onDeleteList={handleDeleteList}
                 />
               ))}
 
@@ -543,6 +577,31 @@ export default function BoardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {showDeleteListModal && listToDelete && (
+          <DeleteListModal
+            isOpen={showDeleteListModal}
+            onClose={() => {
+              setShowDeleteListModal(false)
+              setListToDelete(null)
+            }}
+            listId={listToDelete.id}
+            listTitle={listToDelete.title}
+            onDeleted={fetchListsAndCards}
+          />
+        )}
+        {showDeleteCardModal && cardToDelete && (
+          <DeleteCardModal
+            isOpen={showDeleteCardModal}
+            onClose={() => {
+              setShowDeleteCardModal(false)
+              setCardToDelete(null)
+            }}
+            cardId={cardToDelete.id}
+            cardTitle={cardToDelete.title}
+            onDeleted={fetchListsAndCards}
+          />
         )}
       </div>
     </>
