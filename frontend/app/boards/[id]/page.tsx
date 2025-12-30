@@ -280,8 +280,6 @@ export default function BoardPage() {
     const overId = over.id
     const activeData = active.data.current
 
-    console.log('DragEnd:', { activeId, overId, activeData })
-
     // Si se está arrastrando una columna
     if (activeData?.type === 'column') {
       let overColumnId = overId
@@ -307,8 +305,6 @@ export default function BoardPage() {
 
       const activeIndex = columns.findIndex((col) => col.id === activeId)
       const overIndex = columns.findIndex((col) => col.id === overColumnId)
-
-      console.log('Column drag:', { activeIndex, overIndex, overColumnId })
 
       if (activeIndex !== -1 && overIndex !== -1 && activeIndex !== overIndex) {
         const newColumns = arrayMove(columns, activeIndex, overIndex)
