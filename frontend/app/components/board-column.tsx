@@ -1,7 +1,12 @@
 'use client'
 
 import { useDroppable } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { BoardCard } from './board-card'
 
 interface Card {
@@ -32,17 +37,44 @@ export function BoardColumn({
   onDeleteList,
   onDeleteCard,
 }: BoardColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: id,
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+    id: `droppable-${id}`,
   })
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: id,
+    data: {
+      type: 'column',
+      column: { id, title, cards },
+    },
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
 
   return (
     <div
+      ref={setSortableRef}
+      style={style}
       className={`flex flex-col w-80 rounded-lg p-4 shrink-0 transition-colors ${
         isOver ? 'bg-slate-200' : 'bg-slate-100'
       }`}
     >
-      <div className="flex items-center justify-between mb-4">
+      <div
+        className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
         <h3 className="font-semibold text-slate-800">{title}</h3>
         <div className="flex items-center gap-2">
           <span className="text-sm text-slate-500">{cards.length}</span>
@@ -73,7 +105,7 @@ export function BoardColumn({
         strategy={verticalListSortingStrategy}
       >
         <div
-          ref={setNodeRef}
+          ref={setDroppableRef}
           className="flex flex-col gap-2 min-h-[100px] flex-1"
         >
           {cards.map((card) => (

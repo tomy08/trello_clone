@@ -18,7 +18,8 @@ def create_app():
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
              "allow_headers": ["Content-Type", "Authorization"],
              "supports_credentials": True,
-             "expose_headers": ["Content-Type", "Authorization"]
+             "expose_headers": ["Content-Type", "Authorization"],
+             "max_age": 3600
          }})
 
     # Configuración para Flask-RESTX
@@ -58,6 +59,15 @@ def create_app():
     api.add_namespace(boards_ns, path="/boards")
     api.add_namespace(lists_ns, path="/lists")
     api.add_namespace(cards_ns, path="/cards")
+
+    # Manejar explícitamente las peticiones OPTIONS (preflight)
+    @app.after_request
+    def after_request(response):
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
 
     # Health check endpoint
     @app.route("/health", methods=["GET"])

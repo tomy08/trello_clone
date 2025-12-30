@@ -286,6 +286,57 @@ class ListCards(Resource):
         return new_card.to_dict(), 201
 
 
+@lists_ns.route("/<int:list_id>/position")
+@lists_ns.param("list_id", "ID de la lista")
+class ListPosition(Resource):
+    @lists_ns.doc(
+        "update_list_position",
+        description="Actualizar la posición de una lista",
+        security="Bearer",
+    )
+    @lists_ns.expect(list_move_model)
+    @lists_ns.response(200, "Posición actualizada exitosamente", list_response_model)
+    @lists_ns.response(400, "Datos inválidos", error_model)
+    @lists_ns.response(401, "No autorizado", error_model)
+    @lists_ns.response(404, "Lista no encontrada", error_model)
+    @jwt_required()
+    @require_board_access
+    def put(self, list_id):
+        """Actualizar la posición de una lista"""
+        current_user_id = int(get_jwt_identity())
+        list_obj = List.query.get(list_id)
+        if not list_obj:
+            lists_ns.abort(404, "List not found")
+
+        data = request.get_json()
+        new_position = data.get("position")
+
+        if new_position is None:
+            lists_ns.abort(400, "position is required")
+
+        old_board_id = list_obj.board_id
+        old_position = list_obj.position
+
+        # Validar y obtener posición
+        new_position = validate_position(List, "board_id", old_board_id, new_position)
+
+        # Solo reordenar si realmente cambia la posición
+        if new_position != old_position:
+            reorder_on_move(
+                List,
+                "board_id",
+                list_obj,
+                old_board_id,
+                old_position,
+                old_board_id,
+                new_position,
+            )
+            list_obj.position = new_position
+
+        db.session.commit()
+        return list_obj.to_dict(), 200
+
+
 @lists_ns.route("/<int:list_id>/move")
 @lists_ns.param("list_id", "ID de la lista")
 class ListMove(Resource):

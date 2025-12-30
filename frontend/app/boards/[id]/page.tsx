@@ -11,8 +11,13 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  closestCenter,
 } from '@dnd-kit/core'
-import { arrayMove } from '@dnd-kit/sortable'
+import {
+  arrayMove,
+  SortableContext,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import AuthCheck from '@/app/components/auth-check'
 import { getCurrentUser, getAccessToken, type User } from '@/app/lib/auth'
 import { API_URL } from '@/app/constants'
@@ -64,6 +69,7 @@ export default function BoardPage() {
   const [board, setBoard] = useState<Board | null>(null)
   const [columns, setColumns] = useState<Column[]>([])
   const [activeCard, setActiveCard] = useState<Card | null>(null)
+  const [activeColumn, setActiveColumn] = useState<Column | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAuthorized, setIsAuthorized] = useState(false)
@@ -194,6 +200,15 @@ export default function BoardPage() {
   // Handlers para drag & drop
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
+    const activeData = active.data.current
+
+    // Si es una columna
+    if (activeData?.type === 'column') {
+      setActiveColumn(activeData.column)
+      return
+    }
+
+    // Si es una tarjeta
     const card = columns
       .flatMap((col) => col.cards)
       .find((c) => c.id === active.id)
@@ -204,15 +219,28 @@ export default function BoardPage() {
     const { active, over } = event
     if (!over) return
 
+    const activeData = active.data.current
+
+    // Si es una columna, no hacer nada en dragOver
+    if (activeData?.type === 'column') return
+
     const activeId = active.id as number
-    const overId = over.id as number
+    const overId = over.id
+
+    // Extraer el ID real si es un droppable-{id}
+    const overIdNumber =
+      typeof overId === 'string' && overId.startsWith('droppable-')
+        ? parseInt(overId.replace('droppable-', ''))
+        : (overId as number)
 
     // Encontrar columnas
     const activeColumn = columns.find((col) =>
       col.cards.some((card) => card.id === activeId)
     )
     const overColumn = columns.find(
-      (col) => col.id === overId || col.cards.some((card) => card.id === overId)
+      (col) =>
+        col.id === overIdNumber ||
+        col.cards.some((card) => card.id === overIdNumber)
     )
 
     if (!activeColumn || !overColumn) return
@@ -222,12 +250,12 @@ export default function BoardPage() {
       const activeCards = [...activeColumn.cards]
       const overCards = [...overColumn.cards]
       const activeIndex = activeCards.findIndex((c) => c.id === activeId)
-      const overIndex = overCards.findIndex((c) => c.id === overId)
+      const overIndex = overCards.findIndex((c) => c.id === overIdNumber)
 
       const [movedCard] = activeCards.splice(activeIndex, 1)
       movedCard.list_id = overColumn.id
 
-      if (overId === overColumn.id) {
+      if (overIdNumber === overColumn.id) {
         overCards.push(movedCard)
       } else {
         overCards.splice(overIndex, 0, movedCard)
@@ -244,32 +272,89 @@ export default function BoardPage() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveCard(null)
+    setActiveColumn(null)
 
     if (!over) return
 
-    const activeId = active.id as number
-    const overId = over.id as number
+    const activeId = active.id
+    const overId = over.id
+    const activeData = active.data.current
+
+    console.log('DragEnd:', { activeId, overId, activeData })
+
+    // Si se está arrastrando una columna
+    if (activeData?.type === 'column') {
+      let overColumnId = overId
+
+      // Si overId no es una columna directamente, buscar la columna que la contiene
+      const overColumn = columns.find((col) => col.id === overId)
+      if (!overColumn) {
+        // Buscar si overId es una tarjeta o droppable area
+        const overIdNumber =
+          typeof overId === 'string' && overId.startsWith('droppable-')
+            ? parseInt(overId.replace('droppable-', ''))
+            : overId
+
+        const columnWithCard = columns.find(
+          (col) =>
+            col.id === overIdNumber ||
+            col.cards.some((card) => card.id === overIdNumber)
+        )
+        if (columnWithCard) {
+          overColumnId = columnWithCard.id
+        }
+      }
+
+      const activeIndex = columns.findIndex((col) => col.id === activeId)
+      const overIndex = columns.findIndex((col) => col.id === overColumnId)
+
+      console.log('Column drag:', { activeIndex, overIndex, overColumnId })
+
+      if (activeIndex !== -1 && overIndex !== -1 && activeIndex !== overIndex) {
+        const newColumns = arrayMove(columns, activeIndex, overIndex)
+        setColumns(newColumns)
+        // Actualizar posición en la API
+        await updateListPosition(activeId as number, overIndex)
+      }
+      return
+    }
+
+    // Si se está arrastrando una tarjeta
+    const activeIdNumber = activeId as number
+    const overIdRaw = overId
+
+    // Extraer el ID real si es un droppable-{id}
+    const overIdNumber =
+      typeof overIdRaw === 'string' && overIdRaw.startsWith('droppable-')
+        ? parseInt(overIdRaw.replace('droppable-', ''))
+        : (overIdRaw as number)
 
     const activeColumn = columns.find((col) =>
-      col.cards.some((card) => card.id === activeId)
+      col.cards.some((card) => card.id === activeIdNumber)
     )
     const overColumn = columns.find(
-      (col) => col.id === overId || col.cards.some((card) => card.id === overId)
+      (col) =>
+        col.id === overIdNumber ||
+        col.cards.some((card) => card.id === overIdNumber)
     )
 
     if (!activeColumn || !overColumn) return
 
-    const activeCard = activeColumn.cards.find((c) => c.id === activeId)
+    const activeCard = activeColumn.cards.find((c) => c.id === activeIdNumber)
     if (!activeCard) return
 
     // Si se movió a otra columna
     if (activeColumn.id !== overColumn.id) {
       const newPosition = overColumn.cards.length
-      await moveCardToList(activeId, overColumn.id, newPosition)
+      await moveCardToList(activeIdNumber, overColumn.id, newPosition)
     } else {
       // Reordenar dentro de la misma columna
-      const activeIndex = activeColumn.cards.findIndex((c) => c.id === activeId)
-      const overIndex = activeColumn.cards.findIndex((c) => c.id === overId)
+      const activeIndex = activeColumn.cards.findIndex(
+        (c) => c.id === activeIdNumber
+      )
+      const overIndex = activeColumn.cards.findIndex(
+        (c) => c.id === overIdNumber
+      )
 
       if (activeIndex !== overIndex) {
         setColumns((cols) => {
@@ -283,7 +368,7 @@ export default function BoardPage() {
           )
         })
         // Actualizar posición en la API
-        await moveCardToList(activeId, activeColumn.id, overIndex)
+        await moveCardToList(activeIdNumber, activeColumn.id, overIndex)
       }
     }
   }
@@ -363,6 +448,26 @@ export default function BoardPage() {
       })
     } catch (error) {
       console.error('Error moving card:', error)
+    }
+  }
+
+  const updateListPosition = async (listId: number, position: number) => {
+    try {
+      const token = getAccessToken()
+      if (!token) return
+
+      await fetch(`${API_URL}/lists/${listId}/position`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          position,
+        }),
+      })
+    } catch (error) {
+      console.error('Error updating list position:', error)
     }
   }
 
@@ -490,28 +595,47 @@ export default function BoardPage() {
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
+            collisionDetection={closestCenter}
           >
-            <div className="flex gap-6 overflow-x-auto pb-4">
-              {columns.map((column) => (
-                <BoardColumn
-                  key={column.id}
-                  id={column.id}
-                  title={column.title}
-                  cards={column.cards}
-                  onAddCard={handleAddCard}
-                  onDeleteCard={handleDeleteCard}
-                  onDeleteList={handleDeleteList}
-                />
-              ))}
+            <SortableContext
+              items={columns.map((col) => col.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              <div className="flex gap-6 overflow-x-auto pb-4">
+                {columns.map((column) => (
+                  <BoardColumn
+                    key={column.id}
+                    id={column.id}
+                    title={column.title}
+                    cards={column.cards}
+                    onAddCard={handleAddCard}
+                    onDeleteCard={handleDeleteCard}
+                    onDeleteList={handleDeleteList}
+                  />
+                ))}
 
-              <AddListButton
-                boardId={boardId}
-                onListCreated={fetchListsAndCards}
-              />
-            </div>
+                <AddListButton
+                  boardId={boardId}
+                  onListCreated={fetchListsAndCards}
+                />
+              </div>
+            </SortableContext>
 
             <DragOverlay>
-              {activeCard ? <BoardCard card={activeCard} /> : null}
+              {activeCard ? (
+                <BoardCard card={activeCard} />
+              ) : activeColumn ? (
+                <div className="flex flex-col w-80 rounded-lg p-4 shrink-0 bg-slate-100 opacity-80">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-800">
+                      {activeColumn.title}
+                    </h3>
+                    <span className="text-sm text-slate-500">
+                      {activeColumn.cards.length}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </DragOverlay>
           </DndContext>
         </main>
